@@ -10,4 +10,4 @@ python3 netbench.py
 ```
 ## Run as client
 ```bash
-python3 netbench.py <Server_addr>
+python3 netbench.py <target_server_addr>
