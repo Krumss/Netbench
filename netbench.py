@@ -10,7 +10,7 @@ from time import perf_counter
 port = 41511
 
 def server():
-	# create socket and bind
+	# create socket and bind TCP
 	sockfd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	try:
 		sockfd.bind(('', port))
@@ -38,10 +38,24 @@ def server():
 	sockfd.close()
 	conn.close()
 
+	udpSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+	try:
+		udpSock.bind(('', port))
+	except socket.error as emsg:
+		print("Socket bind error: ", emsg)
+		sys.exit(1)
+	print('wait for connection...')
+
+	indata, addr = udpSock.recvfrom(5)
+	print('recvfrom ' + str(addr) + ': ' + indata.decode())
+
+	UDPTestR(udpSock, addr)
+	udpSock.close()
+
+
 def client(argv):
 
-	# create socket and connect to server
-	print(argv[1])
+	# create socket and connect to server TCP
 	try:
 		sockfd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		sockfd.connect((argv[1], port))
@@ -55,6 +69,20 @@ def client(argv):
 
 	test1(sockfd)
 	sockfd.close()
+
+	#UDP
+	pair = (argv[1], port)
+	try:
+		udpSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+	except socket.error as emsg:
+		print("Socket error: ", emsg)
+		sys.exit(1)
+	udpSock.sendto("Test".encode(), pair)
+	
+	print("UDP ready")
+	UDPTest(udpSock, pair)
+	udpSock.close()
+
 
 def test1(sock):
 	# send file name and file size as one string separate by ':'
@@ -123,6 +151,36 @@ def test1R(conn):
 	print("Elapsed time:", t1_stop-t1_start)
 	print("Throughput: "+str(200 / (t1_stop-t1_start))+"Mb/s")
 	print("[Completed]")
+
+def UDPTest(sock, pair):
+	remaining = 5
+	while remaining > 0:
+		indata, addrR = sock.recvfrom(5)
+		sock.sendto(bytearray(os.urandom(5)), addrR)
+		remaining-=1
+
+	for i in range(5):
+		t1_start = perf_counter()
+		sock.sendto(bytearray(os.urandom(5)), pair)
+		indata, addrR = sock.recvfrom(5)
+		t1_stop = perf_counter()
+		print("Reply from "+pair[0]+": time = "+ str(t1_stop-t1_start)+ " s")
+
+	
+
+def UDPTestR(sock, addr):
+	for i in range(5):
+		t1_start = perf_counter()
+		sock.sendto(bytearray(os.urandom(5)), addr)
+		indata, addrR = sock.recvfrom(5)
+		t1_stop = perf_counter()
+		print("Reply from "+addr[0]+": time = "+ str(t1_stop-t1_start)+ " s")
+
+	remaining = 5
+	while remaining > 0:
+		indata, addrR = sock.recvfrom(5)
+		sock.sendto(bytearray(os.urandom(5)), addrR)
+		remaining-=1
 
 if __name__ == '__main__':
 	if len(sys.argv) > 2:
